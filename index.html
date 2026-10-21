@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Page metadata -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#234d40">
+    <meta name="description" content="Discover Labuan landmarks through interactive browser AR. No app installation needed.">
+
+    <title>Labuan Legends AR — Discovery Journal</title>
+
+    <!-- Styles and scripts -->
+    <link rel="stylesheet" href="./coding/styles.css">
+    <script src="./libs/mindar/mindar-image-three.prod.js" defer></script>
+    <script src="./coding/main.js" type="module"></script>
+  </head>
+
+  <body>
+    <!-- Landing page -->
+    <main id="landing">
+      <header class="landing-nav">
+        <span class="wordmark">Labuan Legends <em>AR</em></span>
+        <button id="landing-passport" class="quiet" data-i18n="passport">My passport</button>
+      </header>
+
+      <section class="welcome">
+        <span class="eyebrow" data-i18n="island">AN ISLAND OF STORIES</span>
+        <h1 data-i18n="welcome">A little closer to Labuan.</h1>
+        <p class="intro" data-i18n="intro">Bring a landmark to life. Explore its details, follow its story, and collect a memory along the way.</p>
+
+        <!-- Landmark previews -->
+        <div class="landmark-cards">
+          <figure>
+            <img src="./assets/targets/umskal.png" alt="UMSKAL image target" width="360" height="230">
+            <figcaption><span>01</span> UMSKAL</figcaption>
+          </figure>
+
+          <figure>
+            <img src="./assets/targets/labuan clock tower.png" alt="Labuan Clock Tower image target" width="360" height="230">
+            <figcaption><span>02</span> <span data-i18n="clock">Clock Tower</span></figcaption>
+          </figure>
+          <figure class="new-location"><div class="location-art" aria-hidden="true">03</div><figcaption>Surrender Point <small data-i18n="markerPending"></small></figcaption></figure>
+          <figure class="new-location"><div class="location-art" aria-hidden="true">04</div><figcaption>LISC <small data-i18n="markerPending"></small></figcaption></figure>
+        </div>
+
+        <!-- Start options and instructions -->
+        <div class="start-actions">
+          <button id="start-ar" class="primary" data-i18n="start">Open AR camera</button>
+          <button id="start-preview" data-i18n="preview">Explore in 3D first</button>
+        </div>
+
+        <p class="small" data-i18n="startHint">Allow your camera, then point it at one of the two printed markers. No app download needed.</p>
+        <button id="markers-btn" class="link" data-i18n="markers">View the markers</button>
+        <p id="startup-status" role="status"></p>
+        <noscript>Please enable JavaScript to open this experience.</noscript>
+      </section>
+
+      <footer>
+        <span data-i18n="footer">Two landmarks. Your own journey.</span>
+        <span>LABUAN LEGENDS</span>
+      </footer>
+    </main>
+
+    <!-- AR and 3D experience -->
+    <main id="experience" hidden>
+      <header class="app-header">
+        <!-- Navigation -->
+        <div class="header-row">
+          <button id="exit-btn" class="quiet" data-i18n="back">← Home</button>
+          <span class="wordmark">Labuan Legends <em>AR</em></span>
+          <button id="passport-btn" class="quiet" data-i18n="passport">My passport</button>
+        </div>
+
+        <!-- Language and theme preferences -->
+        <div class="header-row preferences">
+          <span id="mode-label" class="badge"></span>
+
+          <div class="row">
+            <button id="fullscreen-btn" class="quiet" data-i18n="fullscreen" hidden>Full screen</button>
+            <label class="sr-only" for="lang-select">Language / Bahasa</label>
+            <select id="lang-select">
+              <option value="en">English</option>
+              <option value="ms">Melayu</option>
+            </select>
+            <button id="theme-toggle-btn" class="quiet" data-i18n="theme">Change theme</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Interactive landmark viewer -->
+      <section id="stage" aria-label="Interactive landmark viewer">
+        <div id="ar-container"></div>
+        <div id="hotspots" aria-label="Discovery points"></div>
+
+        <div class="stage-status">
+          <span class="dot"></span>
+          <span id="tracking-status" role="status"></span>
+        </div>
+
+        <div id="scan-guide" hidden>
+          <div class="scan-frame"></div>
+          <p data-i18n="scan">Point your camera at a marker</p>
+        </div>
+
+        <div class="view-tools">
+          <button id="zoom-out" aria-label="Zoom out">−</button>
+          <button id="reset-view" data-i18n="reset">Reset view</button>
+          <button id="zoom-in" aria-label="Zoom in">+</button>
+        </div>
+      </section>
+
+      <div id="ar-dock" hidden>
+        <button id="sheet-toggle" aria-controls="controls" aria-expanded="false" data-i18n="controls">Explore &amp; listen</button>
+        <button id="audio-unlock" data-i18n="audio" hidden>Play narration</button>
+      </div>
+      <!-- Landmark controls and discovery content -->
+      <section id="controls" aria-label="Landmark interactions">
+        <button id="sheet-close" class="quiet" data-i18n="hideControls" hidden>Hide controls</button>
+        <div class="landmark-heading">
+          <div>
+            <span id="collection-progress" class="eyebrow"></span>
+            <h2 id="landmark-title"></h2>
+          </div>
+          <button id="replay-btn" class="quiet" data-i18n="replay">Replay reveal</button>
+        </div>
+
+        <div id="target-picker" class="row"></div>
+        <p id="gesture-hint" class="small" data-i18n="gesture">Drag to rotate · Pinch to zoom · Tap a numbered point</p>
+
+        <div class="action-grid">
+          <button id="discover-btn" data-i18n="discover">Discover</button>
+          <button id="story-btn" data-i18n="story">Story</button>
+          <button id="challenge-btn" data-i18n="challenge">Challenge</button>
+          <button id="info-btn" data-i18n="info">View info</button>
+          <button id="narrator-btn" data-i18n="audio">Play narration</button>
+        </div>
+
+        <p id="audio-note" class="small"></p>
+
+        <!-- Detail panel -->
+        <section id="detail-panel" hidden aria-labelledby="detail-title">
+          <div class="panel-heading">
+            <span id="detail-kicker" class="eyebrow"></span>
+            <button id="close-detail" class="quiet" aria-label="Close details">✕</button>
+          </div>
+
+          <h3 id="detail-title"></h3>
+          <div id="detail-body"></div>
+        </section>
+
+        <p id="feedback" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+
+    <!-- Shared journal dialog -->
+    <dialog id="journal-dialog" aria-labelledby="dialog-title">
+      <div class="panel-heading">
+        <span class="eyebrow">LABUAN LEGENDS</span>
+        <button id="close-dialog" class="quiet" aria-label="Close dialog">✕</button>
+      </div>
+
+      <h2 id="dialog-title"></h2>
+      <div id="dialog-content"></div>
+    </dialog>
+  </body>
+</html>
