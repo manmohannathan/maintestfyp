@@ -1,3 +1,5 @@
+> Latest update: see FLOOR-GALLERY-GUIDE.md for the new UMSKAL Discover layout. This guide describes the retained Tabletop features.
+
 # Tabletop AR update
 
 This copy is based on your latest uploaded Labuan-Ar.zip. Your original ZIP and XAMPP project were not changed.

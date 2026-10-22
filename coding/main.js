@@ -1,5 +1,7 @@
 // Imports and application state
 
+import { createFloorDiscovery } from './floor-discovery.js';
+
 import { loadGLTF } from '../libs/loader.js';
 
 import { TARGETS, UI, STORAGE_KEY, sanitizeProgress } from './content.js';
@@ -94,6 +96,7 @@ function refresh() {
     $('target-picker').appendChild(b);
   }
   updateAudio();
+  floorUI.sync({ target: active?.target, language, seen: active ? progress[active.target.id].seen : [], visible: !!(active?.model && active.target.id === 'umslic' && (session?.mode === 'preview' || active.tracked)) });
 }
 
 // Audio narration
@@ -169,6 +172,7 @@ function autoNarrate(entry) {
 }
 
 function setSheet(open) {
+  if (open) floorUI.close(false);
   const ar = session?.mode === 'ar';
   document.body.classList.toggle('sheet-open', ar && open);
   $('controls').inert = ar && !open;
@@ -252,6 +256,7 @@ function celebrate(message) {
 
 function setActive(entry) {
   if (active === entry) return;
+  floorUI.close(false);
   pauseAudio(true);
   active = entry;
   stopStoryVideo();
@@ -310,17 +315,11 @@ function selectPoint(index, record = true) {
 }
 
 function openPoint(index) {
+  if (active?.target.id === 'umslic') { floorUI.open(index); return; }
   setSheet(true);
   detail = 'point';
   pauseAudio();
   selectPoint(index);
-  renderDetail();
-}
-
-function setFloorFocus(value) {
-  if (!active?.target.floorDiscovery || session?.mode !== 'preview') return;
-  active.floorFocus = value;
-  resize(session);
   renderDetail();
 }
 
@@ -354,28 +353,7 @@ function renderDetail() {
     note.textContent = t('floorDemo');
     body.appendChild(note);
   }
-  if (data.floorDiscovery && (detail === 'discover' || detail === 'point')) {
-    const selected = detail === 'point' ? selection : -1;
-    heading(t('discover'), selected >= 0 ? text(data.points[selected].title) : t('floorChoose'));
-    p(selected >= 0 ? text(data.points[selected].text) : t('floorHint'));
-    const grid = document.createElement('div');
-    grid.className = 'floor-grid';
-    grid.setAttribute('aria-label', t('floorChoose'));
-    data.points.forEach((point, i) => {
-      const seen = progress[data.id].seen.includes(point.key);
-      const b = button(`${i + 1}${seen ? ' ✓' : ''}`, () => openPoint(i), grid);
-      b.dataset.floor = String(i + 1);
-      b.setAttribute('aria-label', text(point.title));
-      b.setAttribute('aria-pressed', String(selected === i));
-      b.classList.toggle('floor-visited', seen);
-    });
-    body.appendChild(grid);
-    const row = document.createElement('div');row.className = 'row floor-navigation';
-    button(t('previousFloor'), () => openPoint(selected - 1), row).disabled = selected <= 0;
-    button(t('nextFloor'), () => openPoint(selected + 1), row).disabled = selected >= data.points.length - 1;
-    if (session.mode === 'preview') button(t(active.floorFocus ? 'campusView' : 'focusTower'), () => setFloorFocus(!active.floorFocus), row);
-    body.appendChild(row);
-  } else if (detail === 'discover' || detail === 'point') {
+  if (detail === 'discover' || detail === 'point') {
     heading(t('discover'), detail === 'point' ? text(data.points[selection].title) : t('choose'));
     p(detail === 'point' ? text(data.points[selection].text) : t('tap'));
     const list = document.createElement('div');
@@ -433,6 +411,7 @@ function renderDetail() {
 // Passport, markers, and information dialogs
 
 function openDialog(kind) {
+  floorUI.close(false);
   dialogKind = kind;
   const el = $('dialog-content');
   el.replaceChildren();
@@ -666,7 +645,7 @@ function updateScene(s, now) {
     e.parts?.forEach((p, i) => {
       const b = e.buttons[i];
       // The floor picker exposes every level without 13 overlapping touch targets.
-      if (!visible || (e.target.floorDiscovery && i !== Math.max(0, selection))) {
+      if (!visible || e.target.id === 'umslic') {
         b.hidden = true;
         return;
       }
@@ -796,6 +775,8 @@ function cleanup(s) {
 }
 
 function exit() {
+  floorUI.close(false);
+  floorUI.sync({visible:false, language});
   generation++;
   pauseAudio(true);
   stopStoryVideo();
@@ -999,6 +980,18 @@ async function start(mode) {
   }
 }
 
+// UMSKAL discovery: screen-space floor buttons and an accessible, swipeable gallery.
+const floorUI = createFloorDiscovery({
+  stage: $('stage'), container: $('experience'),
+  onSelect(index) {
+    pauseAudio(); stopStoryVideo(); detail = null;
+    setSheet(false); renderDetail();
+    selectPoint(index);
+    if (session?.mode === 'preview') { active.floorFocus = true; resize(session); }
+  },
+  onClose() { selection = -1; highlight(active, -1); }
+});
+
 // Event listeners and initialization
 
 $('sheet-toggle').addEventListener('click', () => setSheet(!document.body.classList.contains('sheet-open')));
@@ -1022,6 +1015,11 @@ $('info-btn').addEventListener('click', () => openDialog('info'));
 $('close-dialog').addEventListener('click', () => $('journal-dialog').close());
 
 $('discover-btn').addEventListener('click', () => {
+  if (active?.target.id === 'umslic') {
+    detail = null; renderDetail(); setSheet(false);
+    if (session?.mode === 'preview') { active.floorFocus = true; resize(session); }
+    refresh(); floorUI.focus(); return;
+  }
   setSheet(true);
   detail = 'discover';
   if (active?.target.floorDiscovery && session.mode === 'preview') active.floorFocus = true;
@@ -1031,6 +1029,7 @@ $('discover-btn').addEventListener('click', () => {
 });
 
 $('story-btn').addEventListener('click', () => {
+  floorUI.close(false);
   pauseAudio();
   setSheet(true);
   detail = 'story';
@@ -1039,6 +1038,7 @@ $('story-btn').addEventListener('click', () => {
 });
 
 $('challenge-btn').addEventListener('click', () => {
+  floorUI.close(false);
   pauseAudio();
   setSheet(true);
   detail = 'challenge';
@@ -1063,6 +1063,10 @@ $('zoom-out').addEventListener('click', () => zoom(active.zoom / 1.15));
 $('reset-view').addEventListener('click', () => {
   zoom(1);
   active.user.rotation.y = session.mode === 'preview' ? -.3 : THREE.MathUtils.degToRad(active.target.tabletop.yawDegrees);
+  if (active.target.id === 'umslic' && session.mode === 'preview') {
+    active.floorFocus = false;
+    resize(session);
+  }
 });
 
 $('lang-select').addEventListener('change', e => {
