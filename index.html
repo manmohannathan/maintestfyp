@@ -16,49 +16,28 @@
   </head>
 
   <body>
-    <!-- Landing page -->
+    <!-- Front page. Artwork and styling are separate from the AR experience. -->
     <main id="landing">
       <header class="landing-nav">
-        <span class="wordmark">Labuan Legends <em>AR</em></span>
-        <button id="landing-passport" class="quiet" data-i18n="passport">My passport</button>
+        <a class="landing-brand" href="#landing" aria-label="Labuan Legends home"><span class="brand-symbol" aria-hidden="true">✳</span><span>Labuan<br><b>Legends<span class="brand-ar">AR</span></b></span></a>
+        <nav class="landing-links" aria-label="Main navigation"><a href="#places" data-i18n="browse"></a><a href="#how-it-works" data-i18n="howItWorks"></a></nav>
+        <div class="landing-preferences"><label class="sr-only" for="landing-language">Language / Bahasa</label><select id="landing-language"><option value="en">EN</option><option value="ms">BM</option></select><button id="landing-passport" data-i18n="passport"></button></div>
       </header>
-
-      <section class="welcome">
-        <span class="eyebrow" data-i18n="island">AN ISLAND OF STORIES</span>
-        <h1 data-i18n="welcome">A little closer to Labuan.</h1>
-        <p class="intro" data-i18n="intro">Bring a landmark to life. Explore its details, follow its story, and collect a memory along the way.</p>
-
-        <!-- Landmark previews -->
-        <div class="landmark-cards">
-          <figure>
-            <img src="./assets/targets/umskal.png" alt="UMSKAL image target" width="360" height="230">
-            <figcaption><span>01</span> UMSKAL</figcaption>
-          </figure>
-
-          <figure>
-            <img src="./assets/targets/labuan clock tower.png" alt="Labuan Clock Tower image target" width="360" height="230">
-            <figcaption><span>02</span> <span data-i18n="clock">Clock Tower</span></figcaption>
-          </figure>
-          <figure class="new-location"><div class="location-art" aria-hidden="true">03</div><figcaption>Surrender Point <small data-i18n="markerPending"></small></figcaption></figure>
-          <figure class="new-location"><div class="location-art" aria-hidden="true">04</div><figcaption>LISC <small data-i18n="markerPending"></small></figcaption></figure>
+      <section class="landing-hero">
+        <div class="hero-copy">
+          <p class="eyebrow hero-kicker"><span class="live-dot" aria-hidden="true"></span><span data-i18n="heroKicker"></span></p>
+          <h1 data-i18n="heroTitle"></h1>
+          <p class="hero-intro" data-i18n="heroIntro"></p>
+          <div class="start-actions"><button id="start-ar" class="primary"><span class="camera-icon" aria-hidden="true">◎</span><span data-i18n="start"></span><span aria-hidden="true">↗</span></button><button id="start-preview" data-i18n="preview"></button></div>
+          <div class="hero-benefits"><span data-i18n="noApp"></span><span data-i18n="twoWays"></span></div>
+          <p id="startup-status" role="status" aria-live="polite"></p>
+          <noscript>Please enable JavaScript to use the camera or 3D viewer.</noscript>
         </div>
-
-        <!-- Start options and instructions -->
-        <div class="start-actions">
-          <button id="start-ar" class="primary" data-i18n="start">Open AR camera</button>
-          <button id="start-preview" data-i18n="preview">Explore in 3D first</button>
-        </div>
-
-        <p class="small" data-i18n="startHint">Allow your camera, then point it at one of the two printed markers. No app download needed.</p>
-        <button id="markers-btn" class="link" data-i18n="markers">View the markers</button>
-        <p id="startup-status" role="status"></p>
-        <noscript>Please enable JavaScript to open this experience.</noscript>
+        <figure class="hero-poster"><div class="poster-top"><span>LABUAN / MALAYSIA</span><span>01 — 04</span></div><img src="./assets/illustrations/island-collection.svg" alt="Original illustrated island composition with four Labuan landmarks" width="900" height="850" fetchpriority="high"><figcaption><span data-i18n="heroArtLabel"></span><span aria-hidden="true">✳</span></figcaption></figure>
       </section>
-
-      <footer>
-        <span data-i18n="footer">Two landmarks. Your own journey.</span>
-        <span>LABUAN LEGENDS</span>
-      </footer>
+      <section id="places" class="places-section" aria-labelledby="places-title"><div class="section-heading"><div><p class="eyebrow" data-i18n="collectionKicker"></p><h2 id="places-title" data-i18n="collectionTitle"></h2></div><p data-i18n="collectionIntro"></p></div><div class="landmark-cards"><article class="place-card"><div class="place-art"><img src="./assets/illustrations/umskal.svg" alt="Illustration of UMSKAL" width="800" height="600" loading="lazy"><span class="place-number">01</span></div><div class="place-copy"><span class="eyebrow" data-i18n="campusType"></span><h3>UMSKAL</h3><p data-i18n="campusCard"></p><button data-preview="umslic"><span data-i18n="view3D"></span><span aria-hidden="true">↗</span></button></div></article><article class="place-card"><div class="place-art"><img src="./assets/illustrations/clock-tower.svg" alt="Illustration of Clock Tower" width="800" height="600" loading="lazy"><span class="place-number">02</span></div><div class="place-copy"><span class="eyebrow" data-i18n="heritageType"></span><h3>Clock Tower</h3><p data-i18n="clockCard"></p><button data-preview="labuanclocktower"><span data-i18n="view3D"></span><span aria-hidden="true">↗</span></button></div></article><article class="place-card"><div class="place-art"><img src="./assets/illustrations/surrender-point.svg" alt="Illustration of Surrender Point" width="800" height="600" loading="lazy"><span class="place-number">03</span></div><div class="place-copy"><span class="eyebrow" data-i18n="memorialType"></span><h3>Surrender Point</h3><p data-i18n="surrenderCard"></p><button data-preview="surrenderpoint"><span data-i18n="view3D"></span><span aria-hidden="true">↗</span></button></div></article><article class="place-card"><div class="place-art"><img src="./assets/illustrations/sea-sport-complex.svg" alt="Illustration of Sea Sport Complex" width="800" height="600" loading="lazy"><span class="place-number">04</span></div><div class="place-copy"><span class="eyebrow" data-i18n="coastType"></span><h3>Sea Sport Complex</h3><p data-i18n="liscCard"></p><button data-preview="lisc"><span data-i18n="view3D"></span><span aria-hidden="true">↗</span></button></div></article></div><p class="art-note" data-i18n="artNote"></p></section>
+      <section id="how-it-works" class="how-section" aria-labelledby="how-title"><div class="how-intro"><span class="eyebrow">01 / 02 / 03</span><h2 id="how-title" data-i18n="howItWorks"></h2><button id="markers-btn" class="link" data-i18n="markers"></button></div><ol class="how-steps"><li><span>01</span><h3 data-i18n="stepOne"></h3><p data-i18n="stepOneText"></p></li><li><span>02</span><h3 data-i18n="stepTwo"></h3><p data-i18n="stepTwoText"></p></li><li><span>03</span><h3 data-i18n="stepThree"></h3><p data-i18n="stepThreeText"></p></li></ol></section>
+      <footer><span class="wordmark">Labuan Legends <em>AR</em></span><span data-i18n="footer"></span><a href="#landing" aria-label="Back to top">↑</a></footer>
     </main>
 
     <!-- AR and 3D experience -->
@@ -130,12 +109,12 @@
         <div class="action-grid">
           <button id="discover-btn" data-i18n="discover">Discover</button>
           <button id="story-btn" data-i18n="story">Story</button>
-          <button id="challenge-btn" data-i18n="challenge">Challenge</button>
           <button id="info-btn" data-i18n="info">View info</button>
           <button id="narrator-btn" data-i18n="audio">Play narration</button>
         </div>
 
         <p id="audio-note" class="small"></p>
+        <details id="camera-settings" hidden><summary data-i18n="cameraSettings">Camera settings</summary><p class="small" data-i18n="cameraTip"></p><label for="camera-select" data-i18n="cameraLens"></label><select id="camera-select"></select><div id="camera-zoom-group" hidden><label for="camera-zoom" data-i18n="cameraZoom"></label><input id="camera-zoom" type="range" min="1" max="1" step=".1" value="1"><output id="camera-zoom-value" for="camera-zoom">1.0×</output></div><p id="camera-note" class="small"></p></details>
 
         <!-- Detail panel -->
         <section id="detail-panel" hidden aria-labelledby="detail-title">

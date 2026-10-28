@@ -1,0 +1,633 @@
+// Imports and application state
+
+import { createFloorDiscovery } from './features/floor-discovery.js';
+import { createScene } from './features/scene.js';
+import { createNarration } from './features/narration.js';
+import { createStoryVideo } from './features/story-video.js';
+import { combineTargets } from './services/markers.js';
+import { createCameraService } from './services/camera.js';
+
+import { TARGETS } from './content/landmarks.js';
+import { UI } from './content/translations.js';
+import { STORAGE_KEY, sanitizeProgress } from './services/progress.js';
+
+const THREE = window.MINDAR?.IMAGE?.THREE;
+
+const $ = id => document.getElementById(id);
+
+let language = 'en',
+  progress = sanitizeProgress(null),
+  storageOK = true;
+
+try {
+  progress = sanitizeProgress(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
+  language = localStorage.getItem('labuan-language') === 'ms' ? 'ms' : 'en';
+  document.body.classList.toggle('theme-modern', localStorage.getItem('labuan-theme') === 'modern');
+} catch {
+  storageOK = false;
+}
+
+const text = value => typeof value === 'string' ? value : value?.[language] || value?.en || '';
+
+const t = key => text(UI[key]);
+
+const escape = s => String(s).replace(/[&<>"']/g, c => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+})[c]);
+
+let session = null,
+  generation = 0,
+  active = null,
+  detail = null,
+  chapter = 0,
+  selection = -1,
+  dialogKind = null;
+
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+// Shared interface helpers
+
+function feedback(message) {
+  $('feedback').textContent = message;
+}
+
+function setBusy(value) {
+  $('start-ar').disabled = value;
+  $('start-preview').disabled = value;
+  document.querySelectorAll('[data-preview]').forEach(b => b.disabled = value);
+}
+
+function translate() {
+  document.documentElement.lang = language;
+  $('lang-select').value = language;
+  $('landing-language').value = language;
+  cameraService.translate();
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  if (session) {
+    $('mode-label').textContent = t(session.mode === 'ar' ? 'arMode' : 'previewMode');
+    refresh();
+    renderDetail();
+  }
+  if ($('journal-dialog').open) openDialog(dialogKind);
+}
+
+function refresh() {
+  const available = !!active?.model;
+  $('landmark-title').textContent = active ? active.target.id === 'labuanclocktower' ? t('clock') : active.target.name : t('waiting');
+  $('collection-progress').textContent = active ? `${progress[active.target.id].seen.length} / ${active.target.points.length} ${t(active.target.floorDiscovery ? 'floors' : 'discoveries')}` : 'LABUAN LEGENDS';
+  ['discover-btn', 'story-btn', 'info-btn', 'replay-btn', 'reset-view', 'zoom-in', 'zoom-out'].forEach(id => $(id).disabled = !available);
+  $('tracking-status').textContent = session?.mode === 'preview' ? t(active?.failed ? 'modelError' : active?.model ? 'previewMode' : 'loading') : active?.tracked ? active.model ? t('ready') : active.failed ? t('modelError') : t('loading') : t('scan');
+  $('scan-guide').hidden = session?.mode !== 'ar' || !!active?.tracked;
+  for (const entry of session?.entries || []) for (let i = 0; i < entry.buttons.length; i++) {
+    const done = progress[entry.target.id].seen.includes(entry.target.points[i].key);
+    entry.buttons[i].classList.toggle('done', done);
+    entry.buttons[i].textContent = entry.target.floorDiscovery ? `F${i + 1}` : done ? '✓' : String(i + 1);
+    entry.buttons[i].setAttribute('aria-label', `${i + 1}. ${text(entry.target.points[i].title)}${done ? ' · ' + t('earned') : ''}`);
+  }
+  $('target-picker').replaceChildren();
+  const choices = (session?.entries || []).filter(e => session.mode === 'preview' || e.tracked);
+  if (choices.length > 1) for (const e of choices) {
+    const b = document.createElement('button');
+    b.textContent = e.target.id === 'labuanclocktower' ? t('clock') : e.target.name;
+    b.setAttribute('aria-pressed', String(e === active));
+    b.disabled = e.failed;
+    b.addEventListener('click', () => setActive(e));
+    $('target-picker').appendChild(b);
+  }
+  updateAudio();
+  floorUI.sync({ target: active?.target, language, seen: active ? progress[active.target.id].seen : [], visible: !!(active?.model && active.target.id === 'umslic' && (session?.mode === 'preview' || active.tracked)) });
+}
+
+// Audio narration
+
+function setSheet(open) {
+  if (open) floorUI.close(false);
+  const ar = session?.mode === 'ar';
+  document.body.classList.toggle('sheet-open', ar && open);
+  $('controls').inert = ar && !open;
+  $('sheet-toggle').setAttribute('aria-expanded', String(ar && open));
+  if (ar && !open && detail === 'story') renderDetail();
+}
+
+// Progress and rewards
+
+function persist() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  } catch {
+    storageOK = false;
+  }
+}
+
+function recordPoint(index) {
+  if (!active) return;
+  const data = progress[active.target.id],
+    was = data.earned,
+    key = active.target.points[index].key;
+  if (!data.seen.includes(key)) data.seen.push(key);
+  data.earned = data.seen.length === active.target.points.length;
+  persist();
+  refresh();
+  if (data.earned && !was) celebrate(t('unlocked'));
+}
+
+function celebrate(message) {
+  feedback(message);
+  $('feedback').classList.remove('toast-celebrate');
+  void $('feedback').offsetWidth;
+  $('feedback').classList.add('toast-celebrate');
+}
+
+// Landmark selection and detail panels
+
+function setActive(entry) {
+  if (active === entry) return;
+  floorUI.close(false);
+  pauseAudio(true);
+  active = entry;
+  stopStoryVideo();
+  detail = null;
+  selection = -1;
+  chapter = 0;
+  feedback('');
+  for (const e of session.entries) {
+    if (session.mode === 'preview') e.host.visible = e === entry;
+    if (e.user) e.user.visible = e === entry;
+    highlight(e, -1);
+  }
+  if (entry.model && !entry.revealed) reveal(entry);
+  renderDetail();
+  refresh();
+  if (session) resize(session);
+  autoNarrate(entry);
+  if (!entry.model && !entry.loading && session) {
+    const s = session;
+    entry.loading = prepareModel(entry, s).catch(error => {
+      if (session !== s) return;
+      entry.failed = true;
+      console.error('Model load:', entry.target.id, error);
+      feedback(t('modelError'));
+      refresh();
+    });
+  }
+}
+
+function selectPoint(index, record = true) {
+  if (!active?.model) return;
+  selection = index;
+  highlight(active, index);
+  if (record) recordPoint(index);
+}
+
+function openPoint(index) {
+  if (active?.target.id === 'umslic') { floorUI.open(index); return; }
+  setSheet(true);
+  detail = 'point';
+  pauseAudio();
+  selectPoint(index);
+  renderDetail();
+}
+
+function renderDetail() {
+  stopStoryVideo();
+  $('detail-panel').hidden = !detail || !active;
+  if (!detail || !active) return;
+  const data = active.target,
+    body = $('detail-body');
+  body.replaceChildren();
+  const heading = (k, title) => {
+    $('detail-kicker').textContent = k;
+    $('detail-title').textContent = title;
+  };
+  const p = message => {
+    const el = document.createElement('p');
+    el.textContent = message;
+    body.appendChild(el);
+  };
+  const button = (label, fn, parent = body, primary = false) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (primary) b.className = 'primary';
+    b.addEventListener('click', fn);
+    parent.appendChild(b);
+    return b;
+  };
+  if (data.floorDiscovery) {
+    const note = document.createElement('p');
+    note.className = 'floor-demo-note';
+    note.textContent = t('floorDemo');
+    body.appendChild(note);
+  }
+  if (detail === 'discover' || detail === 'point') {
+    heading(t('discover'), detail === 'point' ? text(data.points[selection].title) : t('choose'));
+    p(detail === 'point' ? text(data.points[selection].text) : t('tap'));
+    const list = document.createElement('div');
+    list.className = 'discovery-list row';
+    data.points.forEach((point, i) => {
+      const b = button(`${progress[data.id].seen.includes(point.key) ? '✓' : i + 1} · ${text(point.title)}`, () => openPoint(i), list);
+      b.setAttribute('aria-pressed', String(detail === 'point' && selection === i));
+    });
+    body.appendChild(list);
+  } else if (detail === 'story') {
+    const c = data.chapters[chapter];
+    selectPoint(c.point, false);
+    heading(`${t('chapter')} ${chapter + 1} ${t('of')} ${data.chapters.length}`, text(c.title));
+    p(text(c.text));
+    addStoryVideo(body, data);
+    const row = document.createElement('div');
+    row.className = 'row';
+    const back = button(t('previous'), () => {
+      chapter--;
+      renderDetail();
+    }, row);
+    back.disabled = chapter === 0;
+    button(t(chapter === data.chapters.length - 1 ? 'storyDone' : 'next'), () => {
+      if (chapter === data.chapters.length - 1) { detail = null; selection = -1; highlight(active, -1); }
+      else chapter++;
+      renderDetail();
+    }, row, true);
+    body.appendChild(row);
+  }
+}
+
+// Passport, markers, and information dialogs
+
+function openDialog(kind) {
+  floorUI.close(false);
+  dialogKind = kind;
+  const el = $('dialog-content');
+  el.replaceChildren();
+  if (kind === 'passport') {
+    const count = TARGETS.filter(target => progress[target.id].earned).length;
+    $('dialog-title').textContent = t('passport');
+    el.innerHTML = `<p>${escape(t(count === TARGETS.length ? 'allDone' : 'passportHint'))}</p><div class="progress-track" role="progressbar" aria-label="${escape(t('passport'))}" aria-valuenow="${count}" aria-valuemin="0" aria-valuemax="${TARGETS.length}"><span style="width:${count / TARGETS.length * 100}%"></span></div><p class="small">${count} / ${TARGETS.length} ${escape(t('earned'))}</p><div class="stamps">${TARGETS.map(target => `<div class="stamp ${progress[target.id].earned ? 'earned' : ''}"><div class="seal" aria-hidden="true">${progress[target.id].earned ? '✓' : '○'}</div><h3>${escape(target.id === 'labuanclocktower' ? t('clock') : target.name)}</h3><p>${escape(t(progress[target.id].earned ? 'earned' : 'locked'))}</p></div>`).join('')}</div><p class="small">${escape(t(storageOK ? 'local' : 'sessionOnly'))}</p>`;
+  } else if (kind === 'markers') {
+    $('dialog-title').textContent = t('markers');
+    el.innerHTML = `<p>${escape(t('markerHint'))}</p><div class="marker-grid">${TARGETS.filter(target => target.marker && target.image).map(target => `<figure><img src="${encodeURI(target.image)}" alt="${escape(target.name)} marker"><figcaption>${escape(target.name)}<a href="${encodeURI(target.image)}" target="_blank" rel="noopener">${escape(t('openImage'))}</a></figcaption></figure>`).join('')}</div>`;
+  } else if (kind === 'info' && active) {
+    $('dialog-title').textContent = active.target.fullName;
+    const p = document.createElement('p');
+    p.textContent = text(active.target.info);
+    el.appendChild(p);
+    if (active.target.visitor) {
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = text(active.target.visitor);
+      el.appendChild(meta);
+    }
+  }
+  pauseAudio();
+  stopStoryVideo();
+  if (!$('journal-dialog').open) $('journal-dialog').showModal();
+}
+
+// Session lifecycle
+
+function cleanup(s) {
+  if (!s || s.closed) return;
+  s.closed = true;
+  cameraService.release();
+  s.observer?.disconnect();
+  s.renderer?.setAnimationLoop(null);
+  s.clearPointers?.();
+  if (s.mind) {
+    s.mind.controller?.stopProcessVideo();
+    s.mind.controller?.worker?.terminate?.();
+    s.mind.video?.srcObject?.getTracks().forEach(track => track.stop());
+    s.mind.video?.remove();
+    window.removeEventListener('resize', s.mind._onResize);
+    s.mind.cssRenderer?.domElement.remove();
+  }
+  s.entries.forEach(e => {
+    disposeModel(e.normalized || e.model);
+    e.buttons.forEach(b => b.remove());
+  });
+  s.renderer?.dispose();
+  s.renderer?.domElement.remove();
+  if (s.targetURL) URL.revokeObjectURL(s.targetURL);
+}
+
+function exit() {
+  floorUI.close(false);
+  floorUI.sync({visible:false, language});
+  generation++;
+  pauseAudio(true);
+  stopStoryVideo();
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  document.body.classList.remove('ar-mode', 'sheet-open');
+  $('controls').inert = false;
+  $('ar-dock').hidden = true;
+  $('sheet-close').hidden = true;
+  const old = session;
+  session = null;
+  active = null;
+  cleanup(old);
+  detail = null;
+  $('hotspots').replaceChildren();
+  $('ar-container').replaceChildren();
+  $('experience').hidden = true;
+  $('landing').hidden = false;
+  setBusy(false);
+  $('startup-status').textContent = '';
+}
+
+async function start(mode, initialTarget = 'umslic') {
+  if (!THREE) {
+    $('startup-status').textContent = 'The AR library could not load. Reload the page.';
+    return;
+  }
+  if (mode === 'ar' && (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)) {
+    $('startup-status').textContent = t('secure');
+    return;
+  }
+  setBusy(true);
+  // Requested inside the Start gesture; viewport layout remains full-screen if unsupported.
+  if (mode === 'ar') document.documentElement.requestFullscreen?.().catch(() => {});
+  $('startup-status').textContent = t('loading');
+  const token = ++generation;
+  const s = {
+    mode,
+    entries: [],
+    targets: mode === 'ar' ? TARGETS.filter(t => t.marker) : TARGETS,
+    closed: false
+  };
+  session = s;
+  active = null;
+  try {
+    if (mode === 'ar') {
+      s.targetURL = await combineTargets(s.targets);
+      if (token !== generation) {
+        URL.revokeObjectURL(s.targetURL);
+        return;
+      }
+      s.mind = new window.MINDAR.IMAGE.MindARThree({
+        container: $('ar-container'),
+        imageTargetSrc: s.targetURL,
+        maxTrack: 2,
+        uiLoading: 'no',
+        uiScanning: 'no',
+        uiError: 'no'
+      });
+      // Keep camera errors and cancellation observable; the bundled loader otherwise rejects without a reason.
+      s.mind._startVideo = async () => {
+        const stream = await cameraService.open(() => token !== generation);
+        if (token !== generation) {
+          stream.getTracks().forEach(track => track.stop());
+          throw Error('Cancelled');
+        }
+        const video = document.createElement('video');
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.style.cssText = 'position:absolute;z-index:1';
+        s.mind.video = video;
+        $('ar-container').appendChild(video);
+        video.srcObject = stream;
+        await video.play();
+        if (token !== generation) {
+          stream.getTracks().forEach(track => track.stop());
+          throw Error('Cancelled');
+        }
+        video.width = video.videoWidth;
+        video.height = video.videoHeight;
+      };
+      s.renderer = s.mind.renderer;
+      s.scene = s.mind.scene;
+      s.camera = s.mind.camera;
+      s.mind.cssRenderer.domElement.style.pointerEvents = 'none';
+    } else {
+      s.renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true
+      });
+      s.scene = new THREE.Scene();
+      s.camera = new THREE.PerspectiveCamera(38, 1, .01, 100);
+      s.camera.position.set(0, 1.1, 3);
+      s.camera.lookAt(0, .42, 0);
+      $('ar-container').appendChild(s.renderer.domElement);
+    }
+    s.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    s.renderer.setClearColor(0, 0);
+    s.renderer.outputEncoding = THREE.sRGBEncoding;
+    s.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    s.renderer.toneMappingExposure = 1;
+    s.scene.add(new THREE.HemisphereLight(0xffffff, 0xb6a78b, .9));
+    const light = new THREE.DirectionalLight(0xfff6e8, .85);
+    light.position.set(2, 4, 4);
+    s.scene.add(light);
+    for (let i = 0; i < s.targets.length; i++) {
+      const anchor = mode === 'ar' ? s.mind.addAnchor(i) : null;
+      const entry = {
+        target: s.targets[i],
+        narrated: new Set(),
+        host: anchor?.group || new THREE.Group(),
+        anchor,
+        model: null,
+        buttons: [],
+        tracked: false,
+        revealed: false,
+        failed: false
+      };
+      s.entries.push(entry);
+      if (mode === 'preview') {
+        s.scene.add(entry.host);
+        entry.host.visible = i === 0;
+      } else {
+        anchor.onTargetFound = () => {
+          if (session !== s) return;
+          entry.tracked = true;
+          if (!active || !active.tracked) setActive(entry);
+          if (entry.model && !entry.revealed) reveal(entry);
+          autoNarrate(entry);
+          refresh();
+        };
+        anchor.onTargetLost = () => {
+          if (session !== s) return;
+          entry.tracked = false;
+          if (active === entry) {
+            pauseAudio();
+            s.clearPointers?.();
+            const other = s.entries.find(e => e !== entry && e.tracked);
+            if (other) setActive(other);else {
+              feedback(t('lost'));
+              refresh();
+            }
+          }
+        };
+      }
+    }
+    document.body.classList.toggle('ar-mode', mode === 'ar');
+    $('ar-dock').hidden = mode !== 'ar';
+    $('camera-settings').hidden = mode !== 'ar';
+    $('sheet-close').hidden = mode !== 'ar';
+    $('fullscreen-btn').hidden = mode !== 'ar' || !document.documentElement.requestFullscreen;
+    setSheet(false);
+    $('landing').hidden = true;
+    $('experience').hidden = false;
+    $('mode-label').textContent = t(mode === 'ar' ? 'arMode' : 'previewMode');
+    feedback('');
+    if (mode === 'preview') setActive(s.entries.find(e => e.target.id === initialTarget) || s.entries[0]);else refresh();
+    s.observer = new ResizeObserver(() => resize(s));
+    s.observer.observe($('stage'));
+    resize(s);
+    attachGestures(s);
+    s.renderer.setAnimationLoop(time => {
+      if (session === s) updateScene(s, time);
+    });
+    // Preview locations load on selection, keeping the first view quick on phones.
+    const results = await Promise.allSettled(s.entries.map(e =>
+      e.loading || Promise.resolve()));
+    if (token !== generation) return;
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        s.entries[i].failed = true;
+        console.error('Model load:', s.entries[i].target.id, r.reason);
+      }
+    });
+    if (results.every(r => r.status === 'rejected')) throw Error('All models failed to load. Check that all assets are uploaded.');
+    if (mode === 'preview' && active.failed && s.entries.some(e => e.model)) setActive(s.entries.find(e => e.model));
+    if (results.some(r => r.status === 'rejected')) feedback(t('modelError'));
+    if (mode === 'ar') {
+      $('tracking-status').textContent = t('camera');
+      await s.mind.start();
+      if (token !== generation) {
+        s.mind.controller?.stopProcessVideo();
+        s.mind.video?.srcObject?.getTracks().forEach(track => track.stop());
+        return;
+      }
+      URL.revokeObjectURL(s.targetURL);
+      s.targetURL = null;
+      resize(s);
+    }
+    setBusy(false);
+    refresh();
+  } catch (error) {
+    console.error('Labuan startup:', error);
+    if (token !== generation) return;
+    exit();
+    $('startup-status').textContent = mode === 'ar' ? t('cameraError') : error?.message || t('modelError');
+  }
+}
+
+const {pauseAudio,updateAudio,toggleAudio,autoNarrate,resetAudio} = createNarration({getActive:()=>active,getSession:()=>session,getLanguage:()=>language,getDetail:()=>detail,t,feedback,$});
+const {stopStoryVideo,addStoryVideo} = createStoryVideo({$,t,text,pauseAudio});
+const {disposeModel,prepareModel,reveal,highlight,updateScene,zoom,attachGestures,resize} = createScene({THREE,$,getSession:()=>session,getActive:()=>active,getSelection:()=>selection,reducedMotion,refresh,openPoint,autoNarrate});
+const cameraService = createCameraService({$,t,onLensChange: () => { exit(); start('ar'); },onZoomChange: () => { if(session) resize(session); }});
+
+// UMSKAL discovery: screen-space floor buttons and an accessible, swipeable gallery.
+const floorUI = createFloorDiscovery({
+  stage: $('stage'), container: $('experience'),
+  onSelect(index) {
+    pauseAudio(); stopStoryVideo(); detail = null;
+    setSheet(false); renderDetail();
+    selectPoint(index);
+    if (session?.mode === 'preview') { active.floorFocus = true; resize(session); }
+  },
+  onClose() { selection = -1; highlight(active, -1); }
+});
+
+// Event listeners and initialization
+
+$('sheet-toggle').addEventListener('click', () => setSheet(!document.body.classList.contains('sheet-open')));
+$('sheet-close').addEventListener('click', () => { setSheet(false); $('sheet-toggle').focus(); });
+$('audio-unlock').addEventListener('click', toggleAudio);
+$('fullscreen-btn').addEventListener('click', () => document.documentElement.requestFullscreen?.().catch(() => {}));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && session?.mode === 'ar') setSheet(false); });
+
+$('start-ar').addEventListener('click', () => start('ar'));
+
+$('start-preview').addEventListener('click', () => start('preview'));
+
+$('exit-btn').addEventListener('click', exit);
+
+['passport-btn', 'landing-passport'].forEach(id => $(id).addEventListener('click', () => openDialog('passport')));
+
+$('markers-btn').addEventListener('click', () => openDialog('markers'));
+
+$('info-btn').addEventListener('click', () => openDialog('info'));
+
+$('close-dialog').addEventListener('click', () => $('journal-dialog').close());
+
+$('discover-btn').addEventListener('click', () => {
+  if (active?.target.id === 'umslic') {
+    detail = null; renderDetail(); setSheet(false);
+    if (session?.mode === 'preview') { active.floorFocus = true; resize(session); }
+    refresh(); floorUI.focus(); return;
+  }
+  setSheet(true);
+  detail = 'discover';
+  if (active?.target.floorDiscovery && session.mode === 'preview') active.floorFocus = true;
+  renderDetail();
+  const controls = $('controls');
+  controls.scrollTop += $('detail-panel').getBoundingClientRect().top - controls.getBoundingClientRect().top;
+});
+
+$('story-btn').addEventListener('click', () => {
+  floorUI.close(false);
+  pauseAudio();
+  setSheet(true);
+  detail = 'story';
+  chapter = 0;
+  renderDetail();
+});
+
+$('close-detail').addEventListener('click', () => {
+  detail = null;
+  selection = -1;
+  highlight(active, -1);
+  renderDetail();
+});
+
+$('replay-btn').addEventListener('click', () => reveal(active));
+
+$('narrator-btn').addEventListener('click', toggleAudio);
+
+$('zoom-in').addEventListener('click', () => zoom(active.zoom * 1.15));
+
+$('zoom-out').addEventListener('click', () => zoom(active.zoom / 1.15));
+
+$('reset-view').addEventListener('click', () => {
+  zoom(1);
+  active.user.rotation.y = session.mode === 'preview' ? -.3 : THREE.MathUtils.degToRad(active.target.tabletop.yawDegrees);
+  if (active.target.id === 'umslic' && session.mode === 'preview') {
+    active.floorFocus = false;
+    resize(session);
+  }
+});
+
+function changeLanguage(e) {
+  pauseAudio(true);
+  resetAudio();
+  language = e.target.value;
+  try {
+    localStorage.setItem('labuan-language', language);
+  } catch {}
+  translate();
+  if (active) autoNarrate(active);
+}
+$('lang-select').addEventListener('change', changeLanguage);
+$('landing-language').addEventListener('change', changeLanguage);
+document.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => start('preview', button.dataset.preview)));
+
+$('theme-toggle-btn').addEventListener('click', () => {
+  document.body.classList.toggle('theme-modern');
+  try {
+    localStorage.setItem('labuan-theme', document.body.classList.contains('theme-modern') ? 'modern' : 'vintage');
+  } catch {}
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    pauseAudio();
+    stopStoryVideo();
+    session?.clearPointers?.();
+  }
+});
+
+window.addEventListener('pagehide', exit);
+
+translate();
