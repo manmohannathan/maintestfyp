@@ -1,4 +1,4 @@
-// Edit this location's descriptions, discoveries and story chapters here.
+// UMSKAL model, floor labels and sample floor descriptions.
 export default {
   "id": "umslic",
   "name": "UMSKAL",
@@ -188,41 +188,6 @@ export default {
       "text": {
         "en": "Sample use: An exhibition space where final-year students can demonstrate projects to supervisors and visitors.",
         "ms": "Kegunaan contoh: Ruang pameran untuk pelajar tahun akhir menunjukkan projek kepada penyelia dan pelawat."
-      }
-    }
-  ],
-  "chapters": [
-    {
-      "point": 0,
-      "title": {
-        "en": "Start at Floor 1",
-        "ms": "Bermula di Aras 1"
-      },
-      "text": {
-        "en": "Begin at the sample welcome and reception area. Select a floor to see its position on the main tower.",
-        "ms": "Mulakan di ruang contoh sambutan dan penerimaan. Pilih aras untuk melihat kedudukannya pada menara utama."
-      }
-    },
-    {
-      "point": 6,
-      "title": {
-        "en": "Explore the middle floors",
-        "ms": "Terokai aras pertengahan"
-      },
-      "text": {
-        "en": "Floor 7 is a sample research lounge. Move between floors to compare the highlighted levels and their example uses.",
-        "ms": "Aras 7 ialah ruang penyelidikan contoh. Tukar aras untuk membandingkan bahagian yang diserlahkan dan contoh kegunaannya."
-      }
-    },
-    {
-      "point": 12,
-      "title": {
-        "en": "Reach Floor 13",
-        "ms": "Sampai di Aras 13"
-      },
-      "text": {
-        "en": "The top demo floor is a project showcase. Imagine presenting your final-year project here.",
-        "ms": "Aras demo teratas ialah ruang pameran projek. Bayangkan anda membentangkan projek tahun akhir di sini."
       }
     }
   ]

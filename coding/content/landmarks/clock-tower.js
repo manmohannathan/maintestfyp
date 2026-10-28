@@ -1,13 +1,10 @@
-// Edit this location's descriptions, discoveries and story chapters here.
+// Discovery locations and model mesh matches. Museum text is in content/museum.js.
 export default {
   "id": "labuanclocktower",
   "name": "Clock Tower",
   "fullName": "Labuan Clock Tower",
   "model": "./assets/models/Labuan_Clock_Tower.gltf",
-  "info": {
-    "en": "Explore this 3D model of the Labuan Clock Tower. Drag to rotate it and view its architectural details.",
-    "ms": "Terokai model 3D Menara Jam Labuan ini. Seret untuk memutarkannya dan melihat butiran seni binanya."
-  },
+  "info": "The tower seen today is a 2002 reconstruction of a clock tower first built in 1906. It recalls the civic life of old Victoria, now Bandar Labuan, and a landmark that remained standing amid the destruction of 1945.",
   "points": [
     {
       "key": "clock",
@@ -20,10 +17,7 @@ export default {
         "en": "The clock faces",
         "ms": "Muka jam"
       },
-      "text": {
-        "en": "Look closely at the clock faces. Find the hands and numerals, then rotate the model to see the other sides.",
-        "ms": "Lihat muka jam dengan lebih dekat. Cari jarum dan angka, kemudian putarkan model untuk melihat sisi yang lain."
-      }
+      "text": "The first clock tower was built in 1906 with the support of Chee Swee Cheng, a businessman and philanthropist from Malacca. It formed part of the old town hall frontage and provided a visible public landmark in Victoria.\n\nLook at the tower’s tall proportions and the way its clock faces sit above the arched lower section. The composition makes time visible from the surrounding public space. Compare the reconstructed form with historical images to see how a familiar outline can preserve a town’s memory."
     },
     {
       "key": "roof",
@@ -32,13 +26,10 @@ export default {
         "Back roof eave"
       ],
       "title": {
-        "en": "The roof",
-        "ms": "Bumbung"
+        "en": "A reconstructed landmark",
+        "ms": "Mercu tanda dibina semula"
       },
-      "text": {
-        "en": "The sloping roof sits above the clock chamber. Turn the model to inspect its shape and overhanging edges.",
-        "ms": "Bumbung condong terletak di atas ruang jam. Putarkan model untuk melihat bentuk dan tepi bumbungnya."
-      }
+      "text": "The Australian War Memorial preserves a 1945 drawing by William Edwin Pidgeon showing the tower after the devastation of the town. This contemporary record helps explain why the tower is remembered as a survivor of wartime destruction.\n\nThe British administration demolished the original tower in 1948. The structure standing today therefore does not contain the complete original tower that survived the war.\n\nPerbadanan Labuan reconstructed the clock tower in 2002 using funding from Malaysia’s Ministry of Tourism. The corporation states that the rebuilding followed the design and dimensions of the original structure."
     },
     {
       "key": "path",
@@ -46,48 +37,10 @@ export default {
         "Brick_Path"
       ],
       "title": {
-        "en": "The approach",
-        "ms": "Laluan masuk"
+        "en": "The waterfront setting",
+        "ms": "Persekitaran pesisir"
       },
-      "text": {
-        "en": "Trace the path leading toward the tower. Zoom out to see how the tower and its base fit together.",
-        "ms": "Ikuti laluan menuju ke menara. Zum keluar untuk melihat hubungan antara menara dengan tapaknya."
-      }
-    }
-  ],
-  "chapters": [
-    {
-      "point": 0,
-      "title": {
-        "en": "Read the landmark",
-        "ms": "Kenali mercu tanda"
-      },
-      "text": {
-        "en": "Start with the feature that gives the Clock Tower its name: the clock faces. Find their hands and numerals.",
-        "ms": "Mulakan dengan ciri yang memberikan nama kepada Menara Jam: muka jam. Cari jarum dan angkanya."
-      }
-    },
-    {
-      "point": 1,
-      "title": {
-        "en": "Look above",
-        "ms": "Lihat ke atas"
-      },
-      "text": {
-        "en": "Move your attention to the roof. The model lets you inspect its shape from different directions.",
-        "ms": "Alihkan perhatian kepada bumbung. Model ini membolehkan anda melihat bentuknya dari pelbagai arah."
-      }
-    },
-    {
-      "point": 2,
-      "title": {
-        "en": "Follow the path",
-        "ms": "Ikuti laluan"
-      },
-      "text": {
-        "en": "Finish at the path and base. Together, these details turn a quick glance into a closer exploration. Explore the discoveries to collect your stamp.",
-        "ms": "Akhiri penerokaan di laluan dan tapak. Butiran ini membantu anda mengenali model dengan lebih dekat. Terokai penemuan untuk mengumpul cap anda."
-      }
+      "text": "The tower is a heritage landmark and a photographic stop opposite the International Sea Sports Complex. It also helps visitors connect the town’s past with its present waterfront setting.\n\nIts value lies in recalling a lost civic structure. A reconstruction can retain the appearance and public meaning of an earlier building while belonging to a different period of construction.\n\nLocation: Jalan Tanjung Purun, Bandar Labuan, opposite the International Sea Sports Complex and close to the Marine Museum.\n\nOutdoor viewing is listed as free and accessible at any time. Daylight is best for examining details; follow local signs and maintenance barriers. Suggested visit: 10–20 minutes.\n\nApproach on foot from nearby waterfront attractions or arrange a taxi drop-off. Cross the road carefully. Enjoy the exterior from public paths and do not climb the structure. Ask the local authority about step-free access and current parking arrangements."
     }
   ]
 };

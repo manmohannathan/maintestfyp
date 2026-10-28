@@ -1,10 +1,11 @@
+import { DISCOVERY_GALLERIES } from '../config/discovery-gallery.js';
 import { FLOOR_GALLERIES } from '../config/floor-gallery.js';
 
-// UMSKAL-only interface. This module does not change any other landmark's discovery.
+// Shared floor / numbered landmark discovery drawer.
 export function createFloorDiscovery({ stage, container, onSelect, onClose }) {
   let state = null, selected = -1, photo = 0, railKey = '', returnFocus = null;
   const words = {
-    floors: ['Floors', 'Aras'], close: ['Close floor information', 'Tutup maklumat aras'],
+    floors: ['Floors', 'Aras'], close: ['Close discovery', 'Tutup penemuan'],
     prev: ['Previous image', 'Imej sebelumnya'], next: ['Next image', 'Imej seterusnya'],
     hint: ['Swipe images or use the arrows', 'Leret imej atau gunakan anak panah'],
     sample: ['Sample illustrations · replace with real floor photos', 'Ilustrasi contoh · gantikan dengan foto aras sebenar'],
@@ -30,7 +31,7 @@ export function createFloorDiscovery({ stage, container, onSelect, onClose }) {
   }
   function updateButtons() {
     [...list.children].forEach((button, position) => {
-      const index = state.target.points.length - 1 - position, point = state.target.points[index];
+      const index = Number(button.dataset.index), point = state.target.points[index];
       button.setAttribute('aria-pressed', String(index === selected));
       button.classList.toggle('visited', state.seen.includes(point.key));
       button.setAttribute('aria-label', text(point.title));
@@ -44,9 +45,9 @@ export function createFloorDiscovery({ stage, container, onSelect, onClose }) {
     const title = el('h2', '', text(point.title)); title.id = 'floor-gallery-title';
     const dismiss = el('button', 'quiet', '×'); dismiss.type = 'button'; dismiss.id = 'floor-gallery-close'; dismiss.setAttribute('aria-label', w('close')); dismiss.addEventListener('click', () => close());
     header.append(title, dismiss); panel.append(header);
-    const images = FLOOR_GALLERIES[point.key] || [];
+    const images = state.target.floorDiscovery ? FLOOR_GALLERIES[point.key] || [] : DISCOVERY_GALLERIES[state.target.id]?.[point.key] || [];
     photo = images.length ? Math.min(photo, images.length - 1) : 0;
-    const carousel = el('div', 'floor-carousel'); carousel.setAttribute('role', 'region'); carousel.setAttribute('aria-roledescription', 'carousel'); carousel.setAttribute('aria-label', `${w('floor')} ${point.floor}`);
+    const carousel = el('div', 'floor-carousel'); carousel.setAttribute('role', 'region'); carousel.setAttribute('aria-roledescription', 'carousel'); carousel.setAttribute('aria-label', text(point.title));
     const viewport = el('div', 'floor-image-viewport'); viewport.tabIndex = 0;
     viewport.setAttribute('aria-label', w('hint'));
     const image = el('img'); image.draggable = false;
@@ -65,11 +66,11 @@ export function createFloorDiscovery({ stage, container, onSelect, onClose }) {
       photo = (index + images.length) % images.length;
       const item = images[photo];
       image.hidden = false; missing.hidden = true;
-      image.alt = `${w('floor')} ${point.floor} · ${text(item.caption) || `${w('image')} ${photo + 1}`}`;
+      image.alt = `${text(point.title)} · ${text(item.caption) || `${w('image')} ${photo + 1}`}`;
       image.src = item.src;
       caption.textContent = text(item.caption);
       counter.textContent = `${photo + 1} / ${images.length}`;
-      sample.hidden = !item.sample;
+      sample.hidden = !item.sample; sample.textContent = state.target.floorDiscovery ? w('sample') : (state.language === 'ms' ? 'Ilustrasi dan model 3D · bukan foto lokasi' : 'Illustrations and 3D model views · not location photographs');
       [...dots.children].forEach((b, i) => b.setAttribute('aria-pressed', String(i === photo)));
     }
     image.addEventListener('error', () => { image.hidden = true; missing.hidden = false; });
@@ -100,11 +101,15 @@ export function createFloorDiscovery({ stage, container, onSelect, onClose }) {
       controls.hidden = dots.hidden = sample.hidden = true;
     }
     const about = el('div', 'floor-gallery-about');
-    about.append(el('h3', '', w('info')), el('p', '', text(point.text)), el('p', 'floor-gallery-sample', w('demo')));
+    about.append(el('h3', '', state.target.floorDiscovery ? w('info') : (state.language === 'ms' ? 'Kisah di sebaliknya' : 'A closer look')), el('p', '', text(point.text)));
+    if (state.target.floorDiscovery) about.append(el('p', 'floor-gallery-sample', w('demo')));
+    else about.append(el('p','floor-gallery-sample', state.language === 'ms' ? 'Teks bahasa Inggeris daripada dokumen projek.' : 'From the supplied project information.')); 
+    if (state.target.id === 'surrenderpoint') about.append(el('p','floor-gallery-sample', 'The project model depicts an earlier memorial design. The supplied information describes the memorial reopened in 2024.'));
     panel.append(about);
   }
   function open(index, focus = true) {
     if (!state?.visible || !state.target.points[index]) return;
+    navigator.vibrate?.(15);
     selected = index; photo = 0;
     returnFocus = list.querySelector(`[data-floor="${index + 1}"]`);
     onSelect(index); drawGallery(); panel.scrollTop = 0; updateButtons();
@@ -115,13 +120,16 @@ export function createFloorDiscovery({ stage, container, onSelect, onClose }) {
     if (state?.target?.id !== next.target?.id || !next.visible) close(false);
     state = next; rail.hidden = !next.visible;
     if (!next.visible) return;
-    rail.setAttribute('aria-label', w('floors')); railTitle.textContent = w('floors');
+    const label = next.target.floorDiscovery ? w('floors') : (next.language === 'ms' ? 'Terokai' : 'Discover');
+    rail.setAttribute('aria-label', label); railTitle.textContent = label; rail.classList.toggle('point-rail', !next.target.floorDiscovery);
     const key = next.target.id + next.language;
     if (railKey !== key) {
       list.replaceChildren(); railKey = key;
-      [...next.target.points].reverse().forEach(point => {
-        const b = el('button', '', String(point.floor)); b.type = 'button'; b.dataset.floor = point.floor;
-        b.setAttribute('aria-controls', 'floor-gallery-panel'); b.addEventListener('click', () => open(point.floor - 1)); list.append(b);
+      const indexes = next.target.points.map((_, i) => i);
+      if (next.target.floorDiscovery) indexes.reverse();
+      indexes.forEach(index => {
+        const b = el('button', '', String(index + 1)); b.type = 'button'; b.dataset.floor = index + 1; b.dataset.index = index;
+        b.setAttribute('aria-controls', 'floor-gallery-panel'); b.addEventListener('click', () => open(index)); list.append(b);
       });
     }
     updateButtons();

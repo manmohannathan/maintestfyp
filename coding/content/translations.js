@@ -1,4 +1,3 @@
-// English/Malay interface copy.
 export const UI = {
   "controls": {
     "en": "Explore & listen",
@@ -13,8 +12,8 @@ export const UI = {
     "ms": "Skrin penuh"
   },
   "videoTitle": {
-    "en": "Watch the story",
-    "ms": "Tonton cerita"
+    "en": "Watch video",
+    "ms": "Tonton video"
   },
   "videoSoon": {
     "en": "Video coming soon",
@@ -133,20 +132,20 @@ export const UI = {
     "ms": "Ulang kemunculan"
   },
   "gesture": {
-    "en": "Drag to rotate · Pinch to zoom · Tap a numbered point",
-    "ms": "Seret untuk putar · Cubit untuk zum · Ketik titik bernombor"
+    "en": "Drag to rotate · Pinch to zoom · Tap the dots or model details",
+    "ms": "Seret untuk putar · Cubit untuk zum · Sentuh titik atau butiran model"
   },
   "discover": {
     "en": "Discover",
     "ms": "Terokai"
   },
   "story": {
-    "en": "Story",
-    "ms": "Cerita"
+    "en": "Watch video",
+    "ms": "Tonton video"
   },
   "info": {
-    "en": "View info",
-    "ms": "Maklumat"
+    "en": "Museum board",
+    "ms": "Papan maklumat"
   },
   "audio": {
     "en": "Play narration",

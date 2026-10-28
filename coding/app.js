@@ -1,9 +1,11 @@
+import { renderMuseum } from './features/museum-board.js';
+import { createAIGuide } from './features/ai-guide.js';
 // Imports and application state
 
 import { createFloorDiscovery } from './features/floor-discovery.js';
 import { createScene } from './features/scene.js';
 import { createNarration } from './features/narration.js';
-import { createStoryVideo } from './features/story-video.js';
+import { createStoryVideo } from './features/landmark-videos.js';
 import { combineTargets } from './services/markers.js';
 import { createCameraService } from './services/camera.js';
 
@@ -43,7 +45,6 @@ let session = null,
   generation = 0,
   active = null,
   detail = null,
-  chapter = 0,
   selection = -1,
   dialogKind = null;
 
@@ -85,7 +86,7 @@ function refresh() {
   for (const entry of session?.entries || []) for (let i = 0; i < entry.buttons.length; i++) {
     const done = progress[entry.target.id].seen.includes(entry.target.points[i].key);
     entry.buttons[i].classList.toggle('done', done);
-    entry.buttons[i].textContent = entry.target.floorDiscovery ? `F${i + 1}` : done ? '✓' : String(i + 1);
+    entry.buttons[i].textContent = entry.target.floorDiscovery ? `F${i + 1}` : String(i + 1);
     entry.buttons[i].setAttribute('aria-label', `${i + 1}. ${text(entry.target.points[i].title)}${done ? ' · ' + t('earned') : ''}`);
   }
   $('target-picker').replaceChildren();
@@ -99,7 +100,8 @@ function refresh() {
     $('target-picker').appendChild(b);
   }
   updateAudio();
-  floorUI.sync({ target: active?.target, language, seen: active ? progress[active.target.id].seen : [], visible: !!(active?.model && active.target.id === 'umslic' && (session?.mode === 'preview' || active.tracked)) });
+  ai.sync();
+  floorUI.sync({ target: active?.target, language, seen: active ? progress[active.target.id].seen : [], visible: !!(active?.model && (session?.mode === 'preview' || active.tracked)) });
 }
 
 // Audio narration
@@ -148,11 +150,11 @@ function setActive(entry) {
   if (active === entry) return;
   floorUI.close(false);
   pauseAudio(true);
+  ai.reset();
   active = entry;
   stopStoryVideo();
   detail = null;
   selection = -1;
-  chapter = 0;
   feedback('');
   for (const e of session.entries) {
     if (session.mode === 'preview') e.host.visible = e === entry;
@@ -183,14 +185,7 @@ function selectPoint(index, record = true) {
   if (record) recordPoint(index);
 }
 
-function openPoint(index) {
-  if (active?.target.id === 'umslic') { floorUI.open(index); return; }
-  setSheet(true);
-  detail = 'point';
-  pauseAudio();
-  selectPoint(index);
-  renderDetail();
-}
+function openPoint(index) { floorUI.open(index); }
 
 function renderDetail() {
   stopStoryVideo();
@@ -216,7 +211,7 @@ function renderDetail() {
     parent.appendChild(b);
     return b;
   };
-  if (data.floorDiscovery) {
+  if (data.floorDiscovery && detail !== 'story') {
     const note = document.createElement('p');
     note.className = 'floor-demo-note';
     note.textContent = t('floorDemo');
@@ -233,24 +228,8 @@ function renderDetail() {
     });
     body.appendChild(list);
   } else if (detail === 'story') {
-    const c = data.chapters[chapter];
-    selectPoint(c.point, false);
-    heading(`${t('chapter')} ${chapter + 1} ${t('of')} ${data.chapters.length}`, text(c.title));
-    p(text(c.text));
+    heading(t('story'), data.fullName);
     addStoryVideo(body, data);
-    const row = document.createElement('div');
-    row.className = 'row';
-    const back = button(t('previous'), () => {
-      chapter--;
-      renderDetail();
-    }, row);
-    back.disabled = chapter === 0;
-    button(t(chapter === data.chapters.length - 1 ? 'storyDone' : 'next'), () => {
-      if (chapter === data.chapters.length - 1) { detail = null; selection = -1; highlight(active, -1); }
-      else chapter++;
-      renderDetail();
-    }, row, true);
-    body.appendChild(row);
   }
 }
 
@@ -258,6 +237,7 @@ function renderDetail() {
 
 function openDialog(kind) {
   floorUI.close(false);
+  ai.close(false);
   dialogKind = kind;
   const el = $('dialog-content');
   el.replaceChildren();
@@ -270,15 +250,7 @@ function openDialog(kind) {
     el.innerHTML = `<p>${escape(t('markerHint'))}</p><div class="marker-grid">${TARGETS.filter(target => target.marker && target.image).map(target => `<figure><img src="${encodeURI(target.image)}" alt="${escape(target.name)} marker"><figcaption>${escape(target.name)}<a href="${encodeURI(target.image)}" target="_blank" rel="noopener">${escape(t('openImage'))}</a></figcaption></figure>`).join('')}</div>`;
   } else if (kind === 'info' && active) {
     $('dialog-title').textContent = active.target.fullName;
-    const p = document.createElement('p');
-    p.textContent = text(active.target.info);
-    el.appendChild(p);
-    if (active.target.visitor) {
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-      meta.textContent = text(active.target.visitor);
-      el.appendChild(meta);
-    }
+    renderMuseum(el, active.target.id, language);
   }
   pauseAudio();
   stopStoryVideo();
@@ -312,6 +284,7 @@ function cleanup(s) {
 }
 
 function exit() {
+  ai.reset();
   floorUI.close(false);
   floorUI.sync({visible:false, language});
   generation++;
@@ -522,13 +495,15 @@ const cameraService = createCameraService({$,t,onLensChange: () => { exit(); sta
 const floorUI = createFloorDiscovery({
   stage: $('stage'), container: $('experience'),
   onSelect(index) {
-    pauseAudio(); stopStoryVideo(); detail = null;
+    ai.close(false); pauseAudio(); stopStoryVideo(); detail = null;
     setSheet(false); renderDetail();
     selectPoint(index);
-    if (session?.mode === 'preview') { active.floorFocus = true; resize(session); }
+    if (active.target.floorDiscovery && session?.mode === 'preview') { active.floorFocus = true; resize(session); }
   },
   onClose() { selection = -1; highlight(active, -1); }
 });
+
+const ai = createAIGuide({ container: $('experience'), getTarget: () => active?.target, getLanguage: () => language, onOpen: () => { floorUI.close(false); pauseAudio(); stopStoryVideo(); detail = null; renderDetail(); setSheet(false); } });
 
 // Event listeners and initialization
 
@@ -553,25 +528,17 @@ $('info-btn').addEventListener('click', () => openDialog('info'));
 $('close-dialog').addEventListener('click', () => $('journal-dialog').close());
 
 $('discover-btn').addEventListener('click', () => {
-  if (active?.target.id === 'umslic') {
-    detail = null; renderDetail(); setSheet(false);
-    if (session?.mode === 'preview') { active.floorFocus = true; resize(session); }
-    refresh(); floorUI.focus(); return;
-  }
-  setSheet(true);
-  detail = 'discover';
-  if (active?.target.floorDiscovery && session.mode === 'preview') active.floorFocus = true;
-  renderDetail();
-  const controls = $('controls');
-  controls.scrollTop += $('detail-panel').getBoundingClientRect().top - controls.getBoundingClientRect().top;
+  ai.close(false); detail = null; renderDetail(); setSheet(false);
+  if (active?.target.floorDiscovery && session?.mode === 'preview') { active.floorFocus = true; resize(session); }
+  refresh(); floorUI.focus();
 });
 
 $('story-btn').addEventListener('click', () => {
+  ai.close(false);
   floorUI.close(false);
   pauseAudio();
   setSheet(true);
   detail = 'story';
-  chapter = 0;
   renderDetail();
 });
 

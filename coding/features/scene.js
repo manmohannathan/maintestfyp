@@ -61,6 +61,7 @@ async function prepareModel(entry, s) {
     });
     if (towerBounds.isEmpty()) throw Error('Main tower geometry not found for floor discovery.');
     entry.floorFocus = false;
+    entry.towerBox = towerBounds.clone().translate(offset.clone().negate());
     entry.focusLocal = towerBounds.getCenter(new THREE.Vector3()).sub(offset);
     entry.focusSize = towerBounds.getSize(new THREE.Vector3());
   }
@@ -142,7 +143,7 @@ async function prepareModel(entry, s) {
     b.hidden = true;
     b.textContent = i + 1;
     b.addEventListener('click', () => {
-      if (getActive() !== entry) setActive(entry);
+      if (getActive() !== entry) return;
       openPoint(i);
     });
     $('hotspots').appendChild(b);
@@ -195,7 +196,7 @@ function updateScene(s, now) {
     e.parts?.forEach((p, i) => {
       const b = e.buttons[i];
       // The floor picker exposes every level without 13 overlapping touch targets.
-      if (!visible || e.target.id === 'umslic') {
+      if (!visible) {
         b.hidden = true;
         return;
       }
@@ -208,6 +209,15 @@ function updateScene(s, now) {
         return;
       }
       // Separate nearby touch targets; the discovery list remains an alternative.
+      if (e.target.floorDiscovery) {
+        b.hidden = false; b.style.left = x + 'px'; b.style.top = y + 'px';
+        const neighbor = e.parts[i === 12 ? 11 : i + 1].anchor.getWorldPosition(new THREE.Vector3()).project(s.camera);
+        const gap = Math.hypot((v.x-neighbor.x)*rect.width/2,(v.y-neighbor.y)*rect.height/2);
+        b.classList.toggle('compact-dot', gap < 26);
+        // Small dots stay at their true projected floor height; the 44px rail is the accessible alternative.
+        b.style.setProperty('--dot-hit', Math.max(8,Math.min(28,gap*.9))+'px');
+        return;
+      }
       const candidates = [[x, y], [x + 52, y], [x - 52, y], [x, y - 52], [x, y + 52]];
       const free = candidates.find(([cx, cy]) => cx >= 22 && cx <= stage.width - 22 && cy >= 44 && cy <= stage.height - 60 && placed.every(old => Math.hypot(cx - old.x, cy - old.y) >= 48));
       b.hidden = !free;
@@ -234,7 +244,8 @@ function zoom(value) {
 function attachGestures(s) {
   const surface = s.renderer.domElement,
     pointers = new Map();
-  let lastDistance = 0;
+  let lastDistance = 0, tap = null;
+  const raycaster = new THREE.Raycaster();
   const point = e => ({
     x: e.clientX,
     y: e.clientY
@@ -248,10 +259,12 @@ function attachGestures(s) {
     if (!getActive()?.user || s.mode === 'ar' && !getActive().tracked) return;
     surface.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, point(e));
+    tap = pointers.size === 1 ? { x:e.clientX, y:e.clientY, id:e.pointerId, entry:getActive() } : null;
     lastDistance = distance();
   });
   surface.addEventListener('pointermove', e => {
     if (!pointers.has(e.pointerId) || !getActive()?.user) return;
+    if (tap && Math.hypot(e.clientX-tap.x,e.clientY-tap.y)>7) tap=null;
     const prev = pointers.get(e.pointerId);
     pointers.set(e.pointerId, point(e));
     if (pointers.size >= 2) {
@@ -263,10 +276,30 @@ function attachGestures(s) {
     }
   });
   const release = e => {
-    pointers.delete(e.pointerId);
+    tap=null; pointers.delete(e.pointerId);
     lastDistance = distance();
   };
-  surface.addEventListener('pointerup', release);
+  surface.addEventListener('pointerup', e => {
+    const entry=getActive();
+    if (tap && tap.id===e.pointerId && tap.entry===entry && !entry.animating && (s.mode==='preview'||entry.tracked)) {
+      const rect=surface.getBoundingClientRect();
+      raycaster.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2),s.camera);
+      const hit=raycaster.intersectObject(entry.model,true)[0];
+      if(hit){
+        let index=-1;
+        if(entry.towerBox){
+          const local=entry.normalized.worldToLocal(hit.point.clone()),box=entry.towerBox;
+          // Glazing and facade trim sit just outside the structural shaft bounds.
+          const facade = /^(Tower|Stepped tower)/i.test(hit.object.name);
+          if((facade || (local.x>=box.min.x-.8&&local.x<=box.max.x+.8&&local.z>=box.min.z-.8&&local.z<=box.max.z+.8))&&local.y>=box.min.y&&local.y<=box.max.y){
+            index=Math.min(12,Math.floor((local.y-box.min.y)/(box.max.y-box.min.y)*13));
+          }
+        }else index=entry.parts.findIndex(part=>part.meshes.includes(hit.object));
+        if(index>=0){navigator.vibrate?.(15);openPoint(index);}
+      }
+    }
+    tap=null;release(e);
+  });
   surface.addEventListener('pointercancel', release);
   surface.addEventListener('lostpointercapture', release);
   surface.addEventListener('wheel', e => {
@@ -278,7 +311,7 @@ function attachGestures(s) {
   });
   // Model getSelection() is handled by explicit landmark buttons, so a drag never opens a card.
   s.clearPointers = () => {
-    pointers.clear();
+    tap=null; pointers.clear();
     lastDistance = 0;
   };
 }
