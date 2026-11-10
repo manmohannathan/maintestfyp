@@ -160,8 +160,8 @@ export const UI = {
     "ms": "Sambung narasi"
   },
   "noAudio": {
-    "en": "Narration coming soon for this language.",
-    "ms": "Narasi akan datang untuk bahasa ini."
+    "en": "Recorded narration is coming soon. Explore the written story in the museum board.",
+    "ms": "Rakaman narasi akan datang. Terokai kisah bertulis di papan maklumat."
   },
   "scan": {
     "en": "Point your camera at a marker",
@@ -288,16 +288,16 @@ export const UI = {
     "ms": "Cara penggunaan"
   },
   "heroKicker": {
-    "en": "YOUR POCKET GUIDE TO LABUAN",
-    "ms": "PANDUAN LABUAN DI TANGAN ANDA"
+    "en": "HERITAGE MEETS AUGMENTED REALITY",
+    "ms": "WARISAN BERTEMU REALITI TERIMBUH"
   },
   "heroTitle": {
-    "en": "A small island.\nA whole new perspective.",
-    "ms": "Sebuah pulau kecil.\nPerspektif baharu."
+    "en": "Heritage,\nwithin reach.",
+    "ms": "Warisan,\ndi hujung jari."
   },
   "heroIntro": {
-    "en": "Bring Labuan’s landmarks to your table. Turn, explore and uncover the details—one discovery at a time.",
-    "ms": "Hidupkan mercu tanda Labuan di atas meja anda. Putar, teroka dan kenali butirannya—satu penemuan pada satu masa."
+    "en": "An island of stories, made yours to explore. Bring Labuan’s landmarks onto your table. Turn the model, touch a detail, discover its story.",
+    "ms": "Kisah sebuah pulau untuk anda terokai. Hadirkan mercu tanda Labuan di atas meja. Putar model, sentuh butiran dan kenali kisahnya."
   },
   "noApp": {
     "en": "No app to install",
@@ -312,16 +312,16 @@ export const UI = {
     "ms": "Kamera AR atau pratonton 3D"
   },
   "collectionKicker": {
-    "en": "THE COLLECTION",
-    "ms": "KOLEKSI"
+    "en": "EXPLORE THE ISLAND",
+    "ms": "TEROKAI PULAU"
   },
   "collectionTitle": {
-    "en": "Where will you begin?",
-    "ms": "Di mana anda akan bermula?"
+    "en": "Four places. Many perspectives.",
+    "ms": "Empat lokasi. Pelbagai perspektif."
   },
   "collectionIntro": {
-    "en": "Choose a landmark to explore in 3D, or open the camera to find it on your map.",
-    "ms": "Pilih mercu tanda untuk diterokai dalam 3D, atau buka kamera untuk mencarinya pada peta anda."
+    "en": "Start with a place that catches your eye. Each model opens a window into Labuan’s architecture, memory and coastal life.",
+    "ms": "Mulakan dengan lokasi yang menarik perhatian. Setiap model membuka jendela kepada seni bina, kenangan dan kehidupan pesisir Labuan."
   },
   "campusType": {
     "en": "CAMPUS & ARCHITECTURE",
@@ -388,39 +388,47 @@ export const UI = {
     "ms": "Putar, zum, dengar dan teroka. Kumpulkan cap untuk setiap mercu tanda yang selesai."
   },
   "heroArtLabel": {
-    "en": "FOUR LANDMARKS. ONE ISLAND.",
-    "ms": "EMPAT MERCU TANDA. SATU PULAU."
+    "en": "THE ISLAND COLLECTION · INTERACTIVE 3D",
+    "ms": "KOLEKSI PULAU · 3D INTERAKTIF"
   },
-  "cameraSettings": {
-    "en": "Camera settings",
-    "ms": "Tetapan kamera"
+  "experienceKicker": {
+    "en": "MORE THAN A VIEW",
+    "ms": "LEBIH DARIPADA PANDANGAN"
   },
-  "cameraLens": {
-    "en": "Camera lens",
-    "ms": "Lensa kamera"
+  "experienceTitle": {
+    "en": "A place to look closer.",
+    "ms": "Ruang untuk melihat lebih dekat."
   },
-  "cameraAuto": {
-    "en": "Automatic rear camera",
-    "ms": "Kamera belakang automatik"
+  "valueOne": {
+    "en": "See it from your angle",
+    "ms": "Lihat dari sudut anda"
   },
-  "cameraZoom": {
-    "en": "Camera zoom",
-    "ms": "Zum kamera"
+  "valueOneText": {
+    "en": "Rotate and zoom to notice shapes, spaces and architectural details that a flat image cannot show.",
+    "ms": "Putar dan zum untuk melihat bentuk, ruang dan butiran seni bina yang sukar dilihat dalam imej rata."
   },
-  "cameraTip": {
-    "en": "View too wide? Choose your main rear camera. Changing the lens restarts scanning.",
-    "ms": "Pandangan terlalu luas? Pilih kamera belakang utama. Menukar lensa memulakan semula imbasan."
+  "valueTwo": {
+    "en": "Follow your curiosity",
+    "ms": "Ikuti rasa ingin tahu"
   },
-  "cameraZoomTip": {
-    "en": "Zoom is relative to the selected camera.",
-    "ms": "Zum adalah relatif kepada kamera yang dipilih."
+  "valueTwoText": {
+    "en": "Touch a discovery point, open its gallery and read the story at your own pace.",
+    "ms": "Sentuh titik penemuan, buka galerinya dan baca kisah mengikut rentak anda."
   },
-  "cameraNoZoom": {
-    "en": "This browser does not expose camera zoom. Try another rear camera above.",
-    "ms": "Pelayar ini tidak menyediakan zum kamera. Cuba kamera belakang lain di atas."
+  "valueThree": {
+    "en": "Keep your discoveries",
+    "ms": "Simpan penemuan anda"
   },
-  "cameraApplyError": {
-    "en": "That zoom setting was not accepted by this camera.",
-    "ms": "Tetapan zum itu tidak diterima oleh kamera ini."
+  "valueThreeText": {
+    "en": "Your exploration passport remembers the places and details you have discovered on this device.",
+    "ms": "Pasport penerokaan menyimpan lokasi dan butiran yang telah anda temui pada peranti ini."
+  },
+  "editionLabel": {
+    "en": "An interactive heritage experience",
+    "ms": "Pengalaman warisan interaktif"
+  },
+  "prototypeNote": {
+    "en": "Presentation prototype · selected galleries use labelled sample illustrations.",
+    "ms": "Prototaip pembentangan · galeri tertentu menggunakan ilustrasi contoh berlabel."
   }
 };

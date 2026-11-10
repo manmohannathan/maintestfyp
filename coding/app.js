@@ -1,3 +1,4 @@
+import { createInteractions } from './features/interactions-panel.js';
 import { renderMuseum } from './features/museum-board.js';
 import { createAIGuide } from './features/ai-guide.js';
 // Imports and application state
@@ -66,7 +67,6 @@ function translate() {
   document.documentElement.lang = language;
   $('lang-select').value = language;
   $('landing-language').value = language;
-  cameraService.translate();
   document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
   if (session) {
     $('mode-label').textContent = t(session.mode === 'ar' ? 'arMode' : 'previewMode');
@@ -78,6 +78,7 @@ function translate() {
 
 function refresh() {
   const available = !!active?.model;
+  $('zoom-level').textContent = (active?.zoom || 1).toFixed(1) + '×';
   $('landmark-title').textContent = active ? active.target.id === 'labuanclocktower' ? t('clock') : active.target.name : t('waiting');
   $('collection-progress').textContent = active ? `${progress[active.target.id].seen.length} / ${active.target.points.length} ${t(active.target.floorDiscovery ? 'floors' : 'discoveries')}` : 'LABUAN LEGENDS';
   ['discover-btn', 'story-btn', 'info-btn', 'replay-btn', 'reset-view', 'zoom-in', 'zoom-out'].forEach(id => $(id).disabled = !available);
@@ -101,7 +102,8 @@ function refresh() {
   }
   updateAudio();
   ai.sync();
-  floorUI.sync({ target: active?.target, language, seen: active ? progress[active.target.id].seen : [], visible: !!(active?.model && (session?.mode === 'preview' || active.tracked)) });
+  interactions.sync();
+  floorUI.sync({ target: active?.target, language, seen: active ? progress[active.target.id].seen : [], visible: !!(!active?.history?.active && active?.model && (session?.mode === 'preview' || active.tracked)) });
 }
 
 // Audio narration
@@ -148,6 +150,7 @@ function celebrate(message) {
 
 function setActive(entry) {
   if (active === entry) return;
+  interactions.close(true);
   floorUI.close(false);
   pauseAudio(true);
   ai.reset();
@@ -236,6 +239,7 @@ function renderDetail() {
 // Passport, markers, and information dialogs
 
 function openDialog(kind) {
+  interactions.close(true);
   floorUI.close(false);
   ai.close(false);
   dialogKind = kind;
@@ -277,6 +281,7 @@ function cleanup(s) {
   s.entries.forEach(e => {
     disposeModel(e.normalized || e.model);
     e.buttons.forEach(b => b.remove());
+    e.featureLabel?.remove();
   });
   s.renderer?.dispose();
   s.renderer?.domElement.remove();
@@ -284,6 +289,7 @@ function cleanup(s) {
 }
 
 function exit() {
+  interactions.close(true);
   ai.reset();
   floorUI.close(false);
   floorUI.sync({visible:false, language});
@@ -340,7 +346,7 @@ async function start(mode, initialTarget = 'umslic') {
       s.mind = new window.MINDAR.IMAGE.MindARThree({
         container: $('ar-container'),
         imageTargetSrc: s.targetURL,
-        maxTrack: 2,
+        maxTrack: 1,
         uiLoading: 'no',
         uiScanning: 'no',
         uiError: 'no'
@@ -435,7 +441,6 @@ async function start(mode, initialTarget = 'umslic') {
     }
     document.body.classList.toggle('ar-mode', mode === 'ar');
     $('ar-dock').hidden = mode !== 'ar';
-    $('camera-settings').hidden = mode !== 'ar';
     $('sheet-close').hidden = mode !== 'ar';
     $('fullscreen-btn').hidden = mode !== 'ar' || !document.documentElement.requestFullscreen;
     setSheet(false);
@@ -449,7 +454,7 @@ async function start(mode, initialTarget = 'umslic') {
     resize(s);
     attachGestures(s);
     s.renderer.setAnimationLoop(time => {
-      if (session === s) updateScene(s, time);
+      if (session === s) {updateScene(s, time);interactions.tick();}
     });
     // Preview locations load on selection, keeping the first view quick on phones.
     const results = await Promise.allSettled(s.entries.map(e =>
@@ -486,10 +491,10 @@ async function start(mode, initialTarget = 'umslic') {
   }
 }
 
-const {pauseAudio,updateAudio,toggleAudio,autoNarrate,resetAudio} = createNarration({getActive:()=>active,getSession:()=>session,getLanguage:()=>language,getDetail:()=>detail,t,feedback,$});
+const {pauseAudio,updateAudio,toggleAudio,autoNarrate,resetAudio} = createNarration({getActive:()=>active,getSession:()=>session,getLanguage:()=>language,getDetail:()=>detail||interactions.mode,t,feedback,$});
 const {stopStoryVideo,addStoryVideo} = createStoryVideo({$,t,text,pauseAudio});
-const {disposeModel,prepareModel,reveal,highlight,updateScene,zoom,attachGestures,resize} = createScene({THREE,$,getSession:()=>session,getActive:()=>active,getSelection:()=>selection,reducedMotion,refresh,openPoint,autoNarrate});
-const cameraService = createCameraService({$,t,onLensChange: () => { exit(); start('ar'); },onZoomChange: () => { if(session) resize(session); }});
+const {disposeModel,prepareModel,reveal,highlight,updateScene,zoom,attachGestures,resize,setEffect,clearEffect} = createScene({THREE,$,getSession:()=>session,getActive:()=>active,getSelection:()=>selection,reducedMotion,refresh,openPoint,autoNarrate,getLanguage:()=>language});
+const cameraService = createCameraService();
 
 // UMSKAL discovery: screen-space floor buttons and an accessible, swipeable gallery.
 const floorUI = createFloorDiscovery({
@@ -497,17 +502,20 @@ const floorUI = createFloorDiscovery({
   onSelect(index) {
     ai.close(false); pauseAudio(); stopStoryVideo(); detail = null;
     setSheet(false); renderDetail();
+    interactions.peek(index);
     selectPoint(index);
     if (active.target.floorDiscovery && session?.mode === 'preview') { active.floorFocus = true; resize(session); }
   },
   onClose() { selection = -1; highlight(active, -1); }
 });
 
-const ai = createAIGuide({ container: $('experience'), getTarget: () => active?.target, getLanguage: () => language, onOpen: () => { floorUI.close(false); pauseAudio(); stopStoryVideo(); detail = null; renderDetail(); setSheet(false); } });
+const ai = createAIGuide({ container: $('experience'), getTarget: () => active?.target, getLanguage: () => language, onOpen: () => { interactions.close(true);floorUI.close(false); pauseAudio(); stopStoryVideo(); detail = null; renderDetail(); setSheet(false); } });
+
+const interactions=createInteractions({container:$('experience'),stage:$('stage'),getActive:()=>active,getSession:()=>session,getLanguage:()=>language,setEffect,clearEffect,openPoint,onInfo:()=>openDialog('info'),resize:()=>{if(session)resize(session);},onOpen:()=>{floorUI.close(false);ai.close(false);pauseAudio();stopStoryVideo();detail=null;renderDetail();setSheet(false);}});
 
 // Event listeners and initialization
 
-$('sheet-toggle').addEventListener('click', () => setSheet(!document.body.classList.contains('sheet-open')));
+$('sheet-toggle').addEventListener('click', () => {const open=!document.body.classList.contains('sheet-open');if(open)interactions.close(true);setSheet(open);});
 $('sheet-close').addEventListener('click', () => { setSheet(false); $('sheet-toggle').focus(); });
 $('audio-unlock').addEventListener('click', toggleAudio);
 $('fullscreen-btn').addEventListener('click', () => document.documentElement.requestFullscreen?.().catch(() => {}));
@@ -528,12 +536,14 @@ $('info-btn').addEventListener('click', () => openDialog('info'));
 $('close-dialog').addEventListener('click', () => $('journal-dialog').close());
 
 $('discover-btn').addEventListener('click', () => {
+  interactions.close(true);
   ai.close(false); detail = null; renderDetail(); setSheet(false);
   if (active?.target.floorDiscovery && session?.mode === 'preview') { active.floorFocus = true; resize(session); }
   refresh(); floorUI.focus();
 });
 
 $('story-btn').addEventListener('click', () => {
+  interactions.close(true);
   ai.close(false);
   floorUI.close(false);
   pauseAudio();
@@ -558,6 +568,8 @@ $('zoom-in').addEventListener('click', () => zoom(active.zoom * 1.15));
 $('zoom-out').addEventListener('click', () => zoom(active.zoom / 1.15));
 
 $('reset-view').addEventListener('click', () => {
+  interactions.close(true);
+  floorUI.close(false);
   zoom(1);
   active.user.rotation.y = session.mode === 'preview' ? -.3 : THREE.MathUtils.degToRad(active.target.tabletop.yawDegrees);
   if (active.target.id === 'umslic' && session.mode === 'preview') {

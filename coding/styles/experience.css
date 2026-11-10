@@ -569,11 +569,3 @@ body.ar-mode {overflow:hidden;}
 
 }
 
-/* Camera controls */
-#camera-settings {border-top:1px solid var(--line);margin-top:12px;padding:12px 0;font-size:12px;}
-#camera-settings summary {cursor:pointer;min-height:36px;}
-#camera-settings label {display:block;margin:12px 0 5px;}
-#camera-select {width:100%;font-size:12px;}
-#camera-zoom {width:calc(100% - 55px);vertical-align:middle;accent-color:var(--accent);min-height:44px;}
-#camera-zoom-value {margin-left:8px;font-variant-numeric:tabular-nums;}
-#camera-note {margin-top:7px;}

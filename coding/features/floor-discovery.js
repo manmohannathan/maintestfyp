@@ -8,7 +8,7 @@ export function createFloorDiscovery({ stage, container, onSelect, onClose }) {
     floors: ['Floors', 'Aras'], close: ['Close discovery', 'Tutup penemuan'],
     prev: ['Previous image', 'Imej sebelumnya'], next: ['Next image', 'Imej seterusnya'],
     hint: ['Swipe images or use the arrows', 'Leret imej atau gunakan anak panah'],
-    sample: ['Sample illustrations · replace with real floor photos', 'Ilustrasi contoh · gantikan dengan foto aras sebenar'],
+    sample: ['Gallery preview · sample floor illustrations', 'Pratonton galeri · ilustrasi aras contoh'],
     missing: ['Image unavailable', 'Imej tidak tersedia'], empty: ['Floor photos coming soon', 'Foto aras akan datang'],
     info: ['About this floor', 'Tentang aras ini'], floor: ['Floor', 'Aras'], image: ['Image', 'Imej'],
     demo: ['Floor information is sample content.', 'Maklumat aras ialah kandungan contoh.']
